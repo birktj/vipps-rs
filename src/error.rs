@@ -10,6 +10,9 @@ pub enum Error {
         title: String,
         detail: String,
     },
+    #[cfg(feature = "mock")]
+    #[error("mock error")]
+    Mock,
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]

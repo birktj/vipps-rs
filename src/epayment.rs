@@ -18,6 +18,7 @@ impl VippsApi {
         CreatePaymentBuilder { api: &self, req }
     }
 
+    #[cfg(not(feature = "mock"))]
     #[tracing::instrument(skip_all, fields(reference = reference.as_str()), err)]
     pub async fn payment(&self, reference: PaymentReference) -> Result<Payment> {
         let data = self
@@ -77,7 +78,7 @@ pub struct CreatePaymentRes {
     reference: PaymentReference,
 }
 
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct PaymentReference(pub(crate) String);
 
 impl PaymentReference {
@@ -92,6 +93,7 @@ pub struct CreatePaymentBuilder<'a> {
 }
 
 impl<'a> CreatePaymentBuilder<'a> {
+    #[cfg(not(feature = "mock"))]
     #[tracing::instrument(skip(self), err)]
     pub async fn send(self) -> Result<Payment> {
         let idempotency_key = self.api.create_unique_reference();
@@ -237,6 +239,7 @@ impl Payment {
         self.data.state.clone()
     }
 
+    #[cfg(not(feature = "mock"))]
     #[tracing::instrument(skip_all, fields(reference = self.reference().as_str()), err)]
     pub async fn cancel(&mut self) -> Result<()> {
         let idempotency_key = self.api.create_unique_reference();
@@ -265,6 +268,7 @@ impl Payment {
         Ok(())
     }
 
+    #[cfg(not(feature = "mock"))]
     #[tracing::instrument(skip_all, fields(reference = self.reference().as_str()), err)]
     pub async fn capture(&mut self, amount: Amount) -> Result<()> {
         // TODO: retry?
@@ -296,6 +300,7 @@ impl Payment {
         Ok(())
     }
 
+    #[cfg(not(feature = "mock"))]
     #[tracing::instrument(skip_all, fields(reference = self.reference().as_str()), err)]
     pub async fn refund(&mut self, amount: Amount) -> Result<()> {
         // TODO: retry?
@@ -396,4 +401,92 @@ pub enum PaymentState {
     Expired,
     Authorized,
     Terminarted,
+}
+
+#[cfg(feature = "mock")]
+pub(crate) mod mock {
+    use super::*;
+
+    use std::collections::HashMap;
+    use std::sync::{LazyLock, Mutex};
+
+    pub(crate) struct MockPaymentDb {
+        pub db: Mutex<HashMap<PaymentReference, GetPaymentRes>>,
+    }
+
+    pub(crate) static MOCK_DB: LazyLock<MockPaymentDb> = LazyLock::new(|| MockPaymentDb {
+        db: Mutex::new(HashMap::new()),
+    });
+
+    impl<'a> CreatePaymentBuilder<'a> {
+        #[cfg(feature = "mock")]
+        pub async fn send(self) -> Result<Payment> {
+            let redirect_url = Some(format!("/mock/vipps/payment/{}", self.req.reference.0));
+            let payment = Payment {
+                api: self.api.clone(),
+                reference: self.req.reference.clone(),
+                data: GetPaymentRes {
+                    amount: self.req.amount,
+                    state: PaymentState::Created,
+                    payment_method: PaymentMethodResponse {
+                        ty: self.req.payment_method.ty,
+                        card_bin: None,
+                    },
+                    profile: ProfileSub { sub: None },
+                    redirect_url,
+                    reference: self.req.reference.clone(),
+                },
+            };
+
+            mock::MOCK_DB
+                .db
+                .lock()
+                .unwrap()
+                .insert(payment.reference.clone(), payment.data.clone());
+
+            Ok(payment)
+        }
+    }
+
+    impl VippsApi {
+        pub async fn payment(&self, reference: PaymentReference) -> Result<Payment> {
+            let data = mock::MOCK_DB
+                .db
+                .lock()
+                .unwrap()
+                .get(&reference)
+                .ok_or(Error::Mock)?
+                .clone();
+
+            Ok(Payment {
+                api: self.clone(),
+                reference,
+                data,
+            })
+        }
+    }
+
+    impl Payment {
+        pub fn set_mock_state(&self, state: PaymentState) {
+            mock::MOCK_DB
+                .db
+                .lock()
+                .unwrap()
+                .get_mut(&self.reference)
+                .unwrap()
+                .state = state;
+        }
+
+        pub async fn cancel(&mut self) -> Result<()> {
+            Ok(())
+        }
+
+        pub async fn capture(&mut self, amount: Amount) -> Result<()> {
+            Ok(())
+        }
+
+        pub async fn refund(&mut self, amount: Amount) -> Result<()> {
+            Ok(())
+        }
+    }
 }

@@ -4,6 +4,9 @@ version = "0.1.0"
 authors = ["Birk Tjelmeland <birk@arkyta.no>"]
 edition = "2021"
 
+[features]
+mock = []
+
 [dependencies]
 thiserror = "1"
 serde = { version = "1", features = ["derive"] }

@@ -5,6 +5,9 @@ mod error;
 pub mod order_management;
 mod qr;
 
+#[cfg(feature = "mock")]
+mod mock;
+
 use std::sync::Arc;
 
 pub use basic::*;
