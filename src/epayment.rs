@@ -403,6 +403,12 @@ pub enum PaymentState {
     Terminarted,
 }
 
+impl PaymentState {
+    pub fn completed(&self) -> bool {
+        !matches!(self, PaymentState::Created)
+    }
+}
+
 #[cfg(feature = "mock")]
 pub(crate) mod mock {
     use super::*;
@@ -410,8 +416,13 @@ pub(crate) mod mock {
     use std::collections::HashMap;
     use std::sync::{LazyLock, Mutex};
 
-    pub(crate) struct MockPaymentDb {
-        pub db: Mutex<HashMap<PaymentReference, GetPaymentRes>>,
+    struct MockPaymentData {
+        pay_data: GetPaymentRes,
+        return_url: Option<String>,
+    }
+
+    struct MockPaymentDb {
+        pub db: Mutex<HashMap<PaymentReference, MockPaymentData>>,
     }
 
     pub(crate) static MOCK_DB: LazyLock<MockPaymentDb> = LazyLock::new(|| MockPaymentDb {
@@ -442,7 +453,10 @@ pub(crate) mod mock {
                 .db
                 .lock()
                 .unwrap()
-                .insert(payment.reference.clone(), payment.data.clone());
+                .insert(payment.reference.clone(), MockPaymentData {
+                    pay_data: payment.data.clone(),
+                    return_url: self.req.return_url,
+                });
 
             Ok(payment)
         }
@@ -456,6 +470,7 @@ pub(crate) mod mock {
                 .unwrap()
                 .get(&reference)
                 .ok_or(Error::Mock)?
+                .pay_data
                 .clone();
 
             Ok(Payment {
@@ -474,7 +489,18 @@ pub(crate) mod mock {
                 .unwrap()
                 .get_mut(&self.reference)
                 .unwrap()
+                .pay_data
                 .state = state;
+        }
+
+        pub fn get_mock_return_url(&self) -> Option<String> {
+            mock::MOCK_DB
+                .db
+                .lock()
+                .unwrap()
+                .get_mut(&self.reference)
+                .unwrap()
+                .return_url.clone()
         }
 
         pub async fn cancel(&mut self) -> Result<()> {

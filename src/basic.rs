@@ -13,6 +13,10 @@ impl Amount {
             value,
         }
     }
+
+    pub fn value(&self) -> i64 {
+        self.value
+    }
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
