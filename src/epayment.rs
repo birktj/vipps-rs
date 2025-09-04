@@ -81,6 +81,20 @@ pub struct CreatePaymentRes {
 #[derive(Clone, Debug, Eq, PartialEq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct PaymentReference(pub(crate) String);
 
+impl std::fmt::Display for PaymentReference {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl std::str::FromStr for PaymentReference {
+    type Err = std::convert::Infallible;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        Ok(Self(s.to_string()))
+    }
+}
+
 impl PaymentReference {
     pub fn as_str(&self) -> &str {
         &self.0
@@ -400,7 +414,7 @@ pub enum PaymentState {
     Aborted,
     Expired,
     Authorized,
-    Terminarted,
+    Terminated,
 }
 
 impl PaymentState {
@@ -449,14 +463,13 @@ pub(crate) mod mock {
                 },
             };
 
-            mock::MOCK_DB
-                .db
-                .lock()
-                .unwrap()
-                .insert(payment.reference.clone(), MockPaymentData {
+            mock::MOCK_DB.db.lock().unwrap().insert(
+                payment.reference.clone(),
+                MockPaymentData {
                     pay_data: payment.data.clone(),
                     return_url: self.req.return_url,
-                });
+                },
+            );
 
             Ok(payment)
         }
@@ -500,7 +513,8 @@ pub(crate) mod mock {
                 .unwrap()
                 .get_mut(&self.reference)
                 .unwrap()
-                .return_url.clone()
+                .return_url
+                .clone()
         }
 
         pub async fn cancel(&mut self) -> Result<()> {
