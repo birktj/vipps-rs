@@ -1,5 +1,3 @@
-use crate::*;
-
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Amount {
     currency: Currency,

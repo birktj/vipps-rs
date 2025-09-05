@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use crate::*;
 
 /// # Epayment api
@@ -365,7 +367,7 @@ struct ModificationReq {
 
 #[derive(Clone, Debug, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct GetPaymentRes {
+pub(crate) struct GetPaymentRes {
     amount: Amount,
     state: PaymentState,
     // aggregate: PayymentAggregate,
@@ -439,7 +441,7 @@ pub(crate) mod mock {
         pub db: Mutex<HashMap<PaymentReference, MockPaymentData>>,
     }
 
-    pub(crate) static MOCK_DB: LazyLock<MockPaymentDb> = LazyLock::new(|| MockPaymentDb {
+    static MOCK_DB: LazyLock<MockPaymentDb> = LazyLock::new(|| MockPaymentDb {
         db: Mutex::new(HashMap::new()),
     });
 
@@ -521,11 +523,11 @@ pub(crate) mod mock {
             Ok(())
         }
 
-        pub async fn capture(&mut self, amount: Amount) -> Result<()> {
+        pub async fn capture(&mut self, _amount: Amount) -> Result<()> {
             Ok(())
         }
 
-        pub async fn refund(&mut self, amount: Amount) -> Result<()> {
+        pub async fn refund(&mut self, _amount: Amount) -> Result<()> {
             Ok(())
         }
     }

@@ -1,4 +1,4 @@
-use crate::*;
+#![allow(dead_code)]
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {

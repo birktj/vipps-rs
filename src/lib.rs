@@ -5,9 +5,6 @@ mod error;
 pub mod order_management;
 mod qr;
 
-#[cfg(feature = "mock")]
-mod mock;
-
 use std::sync::Arc;
 
 pub use basic::*;
@@ -34,8 +31,6 @@ pub struct AuthInfo {
 }
 
 pub(crate) struct VippsApiData {
-    system_info: SystemInfo,
-    merchant_info: MerchantInfo,
     auth_info: AuthInfo,
     client: reqwest::Client,
     base_url: String,
@@ -88,8 +83,6 @@ impl VippsApi {
             .unwrap();
 
         Self(Arc::new(VippsApiData {
-            system_info,
-            merchant_info,
             auth_info,
             client,
             base_url,
